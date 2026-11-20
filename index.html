@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#f5f6f8">
+<title>好评复制器</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--line:#e3e5e9;--text:#1c1f23;--muted:#6b7280;--main:#2563eb;--ok:#0f8a4a}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{min-height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:16px;line-height:1.7}
+  .wrap{width:100%;max-width:520px;margin:0 auto;padding:16px 14px 30px}
+  .hd{text-align:center;margin:6px 0 14px}
+  .hd .t{font-size:19px;font-weight:700}
+  .hd .s{font-size:13px;color:var(--muted);margin-top:4px}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 15px;
+    min-height:190px;font-size:16.5px;line-height:1.95;word-break:break-all;
+    user-select:all;-webkit-user-select:all}
+  .box.empty{color:var(--muted);font-size:14px;display:flex;align-items:center;
+    justify-content:center;text-align:center}
+  .meta{text-align:right;font-size:12px;color:var(--muted);margin:6px 2px 14px}
+  button{display:block;width:100%;padding:17px;font-size:19px;font-weight:700;color:#fff;
+    background:var(--main);border:none;border-radius:12px;cursor:pointer}
+  button:active{opacity:.85}
+  button:disabled{background:#93b4f5}
+  .mini{margin-top:10px;background:#fff;color:var(--main);border:1px solid var(--main);
+    padding:11px;font-size:15px;font-weight:600;border-radius:10px}
+  .toast{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);
+    width:max-content;max-width:86vw;background:rgba(15,138,74,.95);color:#fff;padding:13px 22px;
+    border-radius:10px;font-size:16px;opacity:0;transition:opacity .2s;pointer-events:none;
+    z-index:99;text-align:center}
+  .toast.on{opacity:1}.toast.err{background:rgba(192,57,43,.95)}
+  .picks{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .picks button{min-width:0;padding:13px;font-size:15px}
+  .ticket{display:none;margin:0 0 14px;padding:10px 14px;background:#fff7ed;
+    border:1px solid #fdba74;border-radius:10px;font-size:13px;color:#9a3412;line-height:1.7}
+  .divider{margin-top:20px;padding-top:16px;border-top:1px dashed #d8dbe0}
+  .save-tip{font-size:13px;color:var(--ok);margin-top:8px;text-align:center}
+  #imgShow{display:none;margin-top:12px;text-align:center}
+  #imgEl{width:100%;border-radius:10px;display:block;background:#e9eef8}
+  [hidden]{display:none!important}
+  @media(max-width:360px){
+    .wrap{padding-left:10px;padding-right:10px}
+    .picks{gap:8px}
+    .picks button{font-size:14px}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hd">
+    <div class="t">好评复制器</div>
+    <div class="s" id="sub">点一下就复制好，直接去粘贴</div>
+  </header>
+
+  <div id="ticketBar" class="ticket"></div>
+
+  <section id="pick">
+    <div class="box empty">先选一下你这是哪类店</div>
+    <div class="picks" style="margin-top:14px">
+      <button type="button" data-kind="meal">饭店</button>
+      <button type="button" data-kind="tea">奶茶</button>
+      <button type="button" data-kind="burger">汉堡</button>
+      <button type="button" data-kind="cake">蛋糕</button>
+    </div>
+  </section>
+
+  <section id="main" hidden>
+    <div style="margin-bottom:10px">
+      <button type="button" class="mini" id="backBtn"
+        style="background:#fff;color:#1c6fd6;border-color:#c8d7ee">← 返回选门店</button>
+    </div>
+    <div class="box empty" id="text">正在生成…</div>
+    <div class="meta" id="meta"></div>
+    <button type="button" id="copyBtn">复制好评</button>
+    <button type="button" class="mini" id="nextBtn">换一条</button>
+  </section>
+
+  <section class="divider" id="imgZone">
+    <div class="picks" id="imgCat"></div>
+    <div class="picks" id="imgBrand" style="margin-top:10px" hidden></div>
+    <div id="imgShow">
+      <img id="imgEl" alt="好评配图">
+      <div class="save-tip">👆 长按图片 → 保存到相册</div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="original-content.js"></script>
+<script>
+(function(){
+  'use strict';
+  var NAME={meal:'饭店',tea:'奶茶',burger:'汉堡',cake:'蛋糕'};
+  var POOLS={
+    meal:[
+      '今天来吃饭体验特别好，店里收拾得很干净，服务热情又细致。菜品上桌很快，味道也很合口，分量足、价格实在，下次还会再来。',
+      '环境舒服，桌面和餐具都很整洁。点的几道菜口味都不错，食材新鲜，服务员响应也快，整体用餐过程很顺利，值得推荐。',
+      '和朋友一起过来吃饭，菜品丰富，摆盘好看，味道也在线。店员态度亲切，忙的时候也照顾得很周到，是一次很满意的用餐体验。',
+      '第一次来就留下了好印象，位置好找，店内宽敞明亮。菜做得香而不腻，分量刚刚好，结账也很方便，以后会常来。',
+      '菜品口味稳定，上菜速度快，服务也很到位。用餐环境安静舒适，性价比不错，适合朋友聚餐和日常吃饭。',
+      '从进门到用餐结束都很舒服，店员有礼貌，菜品温度和口感都很好。整体细节做得认真，会推荐给身边的朋友。'
+    ],
+    tea:[
+      '饮品口感很清爽，甜度和冰量都做得刚好，茶香自然不腻。店员动作快、态度好，包装也很仔细，下次还会再点。',
+      '这杯奶茶味道很顺口，配料新鲜有嚼劲，整体不会太甜。门店干净，出杯速度快，拿到手还是很漂亮，体验不错。',
+      '点单方便，店员会耐心确认甜度和冰量。饮品香味足、口感细腻，杯子封得严实，带走也很放心。',
+      '第一次尝试这个口味，意外地很好喝。茶底清香，奶味自然，搭配得很平衡，喝完整杯也不会觉得腻。',
+      '店里环境明亮，等候时间不长。饮品颜值和味道都在线，用料很足，价格也合适，是会回购的一家。',
+      '出品稳定，入口清爽，配料量也很实在。工作人员服务热情，整个取餐过程很顺畅，推荐来试试。'
+    ],
+    burger:[
+      '汉堡拿到手还是热的，面包松软，肉饼鲜嫩多汁，蔬菜也很新鲜。店员服务利落，出餐速度快，整体很满意。',
+      '套餐搭配很丰富，汉堡分量足，薯条香脆，饮料冰爽。包装整齐没有洒漏，性价比不错，下次还会点。',
+      '门店干净明亮，点餐和取餐都很方便。汉堡口味很好，酱汁搭配得恰到好处，吃起来层次很丰富。',
+      '出餐速度比预想中快，食物温度保持得很好。鸡肉外酥里嫩，面包和蔬菜也很新鲜，整体口感不错。',
+      '今天的用餐体验很好，工作人员耐心又热情。汉堡现做现吃味道很香，份量合适，套餐也很划算。',
+      '包装干净稳妥，汉堡没有压扁，食材搭配丰富。口味浓郁但不腻，薯条也很酥脆，值得推荐。'
+    ],
+    cake:[
+      '蛋糕做得很精致，奶油细腻不甜腻，蛋糕胚柔软湿润。包装保护得很好，服务也很耐心，家人都很喜欢。',
+      '甜品颜值很高，切开后层次也很漂亮。用料新鲜，口感清爽，甜度控制得刚好，适合和朋友一起分享。',
+      '店里布置温馨，蛋糕款式很多。店员介绍得很细致，最后选的口味非常满意，香气自然，入口柔软。',
+      '提前预订后按时取到，成品比想象中还精致。奶油顺滑，水果新鲜，整体口感丰富，庆祝氛围一下就有了。',
+      '小蛋糕造型可爱，味道也很不错，甜而不腻。包装盒很结实，带回家没有变形，细节做得很用心。',
+      '蛋糕口感轻盈，奶香自然，吃完不会觉得负担重。服务热情，取餐方便，是一次很满意的购买体验。'
+    ]
+  };
+  var ORIGINAL_CONTENT=window.ORIGINAL_CONTENT||{};
+  if(ORIGINAL_CONTENT.reviews)POOLS=ORIGINAL_CONTENT.reviews;
+  var ORIGINAL_IMAGES=ORIGINAL_CONTENT.imageFiles||{};
+  var IMG_CATS=[{k:'tea',n:'奶茶'},{k:'burger',n:'汉堡'}];
+  var IMG_BRANDS=[
+    {key:'hualan',name:'华莱士',cat:'burger'},{key:'taxiting',name:'塔斯汀',cat:'burger'},
+    {key:'kfc',name:'肯德基',cat:'burger'},{key:'mcdonalds',name:'麦当劳',cat:'burger'},
+    {key:'xiangduowei',name:'享多味',cat:'burger'},{key:'mixue',name:'蜜雪冰城',cat:'tea'},
+    {key:'ruixing',name:'瑞幸咖啡',cat:'tea'},{key:'bawang',name:'霸王茶姬',cat:'tea'},
+    {key:'chabaidao',name:'茶百道',cat:'tea'},{key:'guming',name:'古茗',cat:'tea'},
+    {key:'yihetang',name:'益禾堂',cat:'tea'}
+  ];
+  var state={kind:'',current:'',lastIndex:{},brand:''};
+  function $(id){return document.getElementById(id)}
+  function query(name){
+    try{return new URLSearchParams(location.search).get(name)||''}catch(e){return ''}
+  }
+  function ticketKey(){return 'review-copy-ticket-'+(query('t')||'default')}
+  function readUsage(){
+    try{return JSON.parse(localStorage.getItem(ticketKey()))||{text:0,img:0}}catch(e){return {text:0,img:0}}
+  }
+  function writeUsage(data){
+    try{localStorage.setItem(ticketKey(),JSON.stringify(data))}catch(e){}
+    renderTicket();
+  }
+  function addUsage(type){
+    if(!query('t'))return;
+    var u=readUsage();u[type]=(u[type]||0)+1;writeUsage(u);
+  }
+  function renderTicket(){
+    var token=query('t'),bar=$('ticketBar');
+    if(!token){bar.style.display='none';return}
+    var u=readUsage(),textLeft=Math.max(0,800-u.text),imgLeft=Math.max(0,500-u.img);
+    bar.style.display='block';
+    bar.innerHTML='本条码剩余：文字好评 <b>'+textLeft+'</b> 条 · 配图 <b>'+imgLeft+
+      '</b> 张<br><span style="font-size:12px;color:#b45309">本设备已用：文字 '+
+      u.text+' 条 · 图 '+u.img+' 张</span>';
+  }
+  function toast(message,isError){
+    var el=$('toast');el.textContent=message;el.className='toast on'+(isError?' err':'');
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer=setTimeout(function(){el.className='toast'+(isError?' err':'')},1600);
+  }
+  function nextText(kind){
+    var list=POOLS[kind]||POOLS.meal;
+    var previous=state.lastIndex[kind],index=Math.floor(Math.random()*list.length);
+    if(list.length>1 && index===previous)index=(index+1)%list.length;
+    state.lastIndex[kind]=index;
+    return list[index];
+  }
+  function showText(text){
+    state.current=text;
+    $('text').className='box';
+    $('text').textContent=text;
+    $('meta').textContent=text.length+' 字';
+    addUsage('text');
+  }
+  function pull(){
+    $('copyBtn').disabled=true;$('copyBtn').textContent='生成中…';
+    setTimeout(function(){
+      showText(nextText(state.kind));
+      $('copyBtn').disabled=false;$('copyBtn').textContent='复制好评';
+    },120);
+  }
+  function start(kind,label){
+    state.kind=kind;
+    $('pick').hidden=true;$('main').hidden=false;
+    $('sub').textContent=(label||NAME[kind])+' · 点一下就复制好，直接去粘贴';
+    pull();
+    try{
+      var p=new URLSearchParams(location.search);p.set('k',kind);
+      history.replaceState(null,'','?'+p.toString());
+    }catch(e){}
+  }
+  function copyText(text){
+    if(navigator.clipboard && window.isSecureContext){
+      return navigator.clipboard.writeText(text).then(function(){return true},function(){return legacyCopy(text)})
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+  function legacyCopy(text){
+    var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+    ta.style.position='fixed';ta.style.opacity='0';ta.style.fontSize='16px';
+    document.body.appendChild(ta);ta.focus();ta.select();
+    var ok=false;try{ok=document.execCommand('copy')}catch(e){}
+    document.body.removeChild(ta);return ok;
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+  }
+  function poster(brand,cat){
+    var c=document.createElement('canvas');c.width=1200;c.height=900;
+    var x=c.getContext('2d'),tea=cat==='tea';
+    var g=x.createLinearGradient(0,0,1200,900);
+    g.addColorStop(0,tea?'#fff0d8':'#fff1df');g.addColorStop(1,tea?'#f6b9a8':'#f2a66f');
+    x.fillStyle=g;x.fillRect(0,0,1200,900);
+    x.globalAlpha=.18;x.fillStyle='#fff';
+    for(var i=0;i<18;i++){x.beginPath();x.arc((i*193)%1250,(i*117)%920,35+(i%4)*22,0,Math.PI*2);x.fill()}
+    x.globalAlpha=1;
+    x.fillStyle='rgba(255,255,255,.88)';roundRect(x,105,100,990,700,42);x.fill();
+    x.textAlign='center';x.fillStyle='#202632';
+    x.font='700 58px "Microsoft YaHei",sans-serif';x.fillText(brand,600,205);
+    x.font='700 155px "Segoe UI Emoji","Microsoft YaHei",sans-serif';
+    x.fillText(tea?'🥤':'🍔',600,455);
+    x.fillStyle=tea?'#a14f3f':'#9c4d24';x.font='700 62px "Microsoft YaHei",sans-serif';
+    x.fillText(tea?'清爽好喝 · 用料新鲜':'现做热乎 · 鲜香满足',600,590);
+    x.fillStyle='#596274';x.font='36px "Microsoft YaHei",sans-serif';
+    x.fillText('记录今天的小满足',600,675);
+    x.strokeStyle='rgba(0,0,0,.12)';x.lineWidth=3;roundRect(x,105,100,990,700,42);x.stroke();
+    return c.toDataURL('image/png');
+  }
+  function pickBrand(brand){
+    state.brand=brand.name;state.kind=brand.cat;
+    $('pick').hidden=true;$('imgBrand').hidden=true;$('main').hidden=false;
+    $('sub').textContent=brand.name+' · 先复制文字，再长按图保存';
+    pull();
+    var image=$('imgEl');
+    image.onerror=function(){
+      image.onerror=null;
+      image.src=poster(brand.name,brand.cat);
+    };
+    image.src='assets/original/'+(ORIGINAL_IMAGES[brand.key]||brand.key+'.jpg');
+    $('imgShow').style.display='block';
+    addUsage('img');toast('图出来了，长按保存');
+  }
+  document.querySelectorAll('#pick button[data-kind]').forEach(function(button){
+    button.addEventListener('click',function(){start(button.dataset.kind)})
+  });
+  $('copyBtn').addEventListener('click',function(){
+    if(!state.current)return;
+    var btn=this;btn.disabled=true;btn.textContent='复制中…';
+    copyText(state.current).then(function(ok){
+      btn.disabled=false;btn.textContent='复制好评';
+      toast(ok?'已复制，去粘贴吧':'复制失败，长按上面的文字复制',!ok);
+    });
+  });
+  $('nextBtn').addEventListener('click',pull);
+  $('backBtn').addEventListener('click',function(){
+    $('main').hidden=true;$('pick').hidden=false;$('imgShow').style.display='none';
+    $('imgBrand').hidden=true;$('sub').textContent='点一下就复制好，直接去粘贴';
+    window.scrollTo(0,0);
+  });
+  IMG_CATS.forEach(function(cat){
+    var b=document.createElement('button');b.type='button';b.textContent=cat.n;
+    b.addEventListener('click',function(){
+      var box=$('imgBrand');box.innerHTML='';
+      IMG_BRANDS.filter(function(item){return item.cat===cat.k}).forEach(function(brand){
+        var bb=document.createElement('button');bb.type='button';bb.textContent=brand.name;
+        bb.addEventListener('click',function(){pickBrand(brand)});box.appendChild(bb);
+      });
+      box.hidden=false;
+    });
+    $('imgCat').appendChild(b);
+  });
+  renderTicket();
+  var initial=query('k');
+  if(NAME[initial])start(initial);
+})();
+</script>
+</body>
+</html>
